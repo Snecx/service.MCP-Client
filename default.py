@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import xbmc
+import xbmcgui
 import xbmcaddon
 import sys
 import socket
@@ -14,28 +15,28 @@ __addonpath__           = xbmc.translatePath(__addon__.getAddonInfo('path')).dec
 __settings__            = xbmcaddon.Addon(id="service.MCP-Client")
 
 serviceForScript = 'script.MCP-Client'
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.settimeout(5) 
-socketconn = False
 
 class ConnectionCheck(xbmc.Monitor):
     isconnected = False
     count = 0
-    localsock = False
+    isdebug = False
+    pingtime = 10
     
-
+    
+    def Msg(self,message):
+       xbmcgui.Dialog().notification("MCP-Client", message, __icon__, 2000)
+       
     def onNotification(self,sender, method, data):
         player = self.GetSystemName()
         pre = '{"jsonrpc":"' + player + '","method":"' + method + '","params":{"data":' + data + ',"sender":"xbmc"}}'
-        self.SendOverSocket(pre,self.localsock)
+        try:
+           s.sendall(pre + "\r\n\r\n")
+           #xbmc.log("MCP-Client: " + str(pre), level=xbmc.LOGNOTICE)
+        except socket.error as msg:
+           if self.isdebug == True:
+             xbmc.log("MCP-Client:  Send eror code: " + str(msg), level=xbmc.LOGNOTICE)
+           self.Msg("Send JSON failed!")
         
-    def SendOverSocket(self,inpu,qw):
-         try:
-           qw.sendall(inpu + "\r\n\r\n")
-         except socket.error, msg:
-           xbmc.log("MCP-Client:  Send eror code: " + str(msg), level=xbmc.LOGNOTICE)
-           
     def GetSystemName(self):
          json_response = xbmc.executeJSONRPC('{"jsonrpc":"2.0","method":"Settings.GetSettingValue","params":{"setting":"services.devicename"},"id":1}')
          parsed_json = json.loads(json_response)
@@ -46,54 +47,69 @@ class ConnectionCheck(xbmc.Monitor):
         json_response = xbmc.getInfoLabel("Network.IPAddress")
         return str(json_response)
         
-    def __init__(self,sock):
+    def __init__(self):
         xbmc.Monitor.__init__(self)
-        self.localsock = sock
+        self.pingtime = __settings__.getSetting("pingtime")
+        global s
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.settimeout(5) 
+        #self.socketconn = False
+        self.isdebug = __settings__.getSetting("debug")
         try:
            player2 = self.GetSystemName()
-           host = lastintro = __settings__.getSetting("serverip")
+           host = __settings__.getSetting("serverip")
            port = __settings__.getSetting("serverport")
-           sock.connect((host , int(port)))
+           s.connect((host , int(port)))
            self.isconnected = True
-           sock.sendall(" --(" + player2  + ")-- \r\n")
-        except socket.error, msg:
-           xbmc.log("MCP-Client:" + 'Failed to create socket.: ' + str(msg) , level=xbmc.LOGNOTICE)
-           isconnected = False        
+           s.sendall(" --(" + player2  + ")-- \r\n")
+           
+        except socket.error as msg:
+           if self.isdebug == True:
+             xbmc.log("MCP-Client:" + 'Failed to connect socket.: ' + str(msg) , level=xbmc.LOGNOTICE)
+           self.Msg("Connect failed!")
+           self.isconnected = False        
         
         while(not xbmc.abortRequested):
              xbmc.sleep(50)
              self.count += 1
-             if self.count == 200:
+             if self.count == int(self.pingtime)*20:
                 self.count = 0
                 if self.isconnected == False:
                     try:
-                        xbmc.log("MCP-Client:" + "Trying to reconnect...", level=xbmc.LOGNOTICE)
+                        if self.isdebug == True:
+                           xbmc.log("MCP-Client:" + "Trying to reconnect...", level=xbmc.LOGNOTICE)
                         player2 = self.GetSystemName()
                         host = __settings__.getSetting("serverip")
                         port = __settings__.getSetting("serverport")
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        sock.connect((host , int(port)))
+                        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        s.connect((host , int(port)))
                         self.isconnected = True
-                        sock.sendall(" --(" + player2  + ")-- \r\n")
-                    except socket.error, msg:
-                        xbmc.log("MCP-Client:" + 'Failed to create socket.: ' + str(msg), level=xbmc.LOGNOTICE)
+                        #self.localsocket = sock
+                        s.sendall(" --(" + player2  + ")-- \r\n")
+                    except socket.error as msg:
+                        if self.isdebug == True:
+                          xbmc.log("MCP-Client:" + 'Failed to reconnect socket.: ' + str(msg), level=xbmc.LOGNOTICE)
+                        self.Msg("Reconnect failed!")
                         self.isconnected = False
                 else:
                     try:
-                        sock.sendall("PING\r\n")
-                    except socket.error, msg:
-                        xbmc.log("MCP-Client:" + 'Failed to send PING: ' + str(msg), level=xbmc.LOGNOTICE)
+                        s.sendall("PING\r\n")
+                    except socket.error as msg:
+                        if self.isdebug == True:
+                          xbmc.log("MCP-Client:" + 'Failed to send PING: ' + str(msg), level=xbmc.LOGNOTICE)
                         self.isconnected = False
-                        sock.shutdown(2)
-                        sock.close
+                        self.Msg("PING failed!")
+                        #s.shutdown(2)
+                        s.close
+        #s.shutdown(2)
+        s.close()
 
 
-
-xbmc.log("MCP-Client: Start", level=xbmc.LOGNOTICE)
-xbmc.log("MCP-Client: 1.1", level=xbmc.LOGNOTICE)
+xbmc.log("MCP-Client: Start (ver:1.4)", level=xbmc.LOGNOTICE)
 xbmc.sleep(1000)
 xbmc.log("MCP-Client: Connection monitor start", level=xbmc.LOGNOTICE)
-con = ConnectionCheck(s)
+con = ConnectionCheck()
 xbmc.log("MCP-Client: Connection monitor stop", level=xbmc.LOGNOTICE)
-s.close()
-xbmc.log("MCP-Client: Start", level=xbmc.LOGNOTICE)
+
+

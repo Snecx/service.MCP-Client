@@ -1,0 +1,39 @@
+# -*- coding: utf-8 -*-
+
+import xbmc
+import xbmcaddon
+
+__addon__               = xbmcaddon.Addon()
+__addon_id__            = __addon__.getAddonInfo('id')
+__addonname__           = __addon__.getAddonInfo('name')
+__icon__                = __addon__.getAddonInfo('icon')
+__addonpath__           = xbmc.translatePath(__addon__.getAddonInfo('path')).decode('utf-8')
+
+#name of script for this service work
+serviceForScript = 'script.SSHClient'
+
+class Run:
+
+    def __init__(self):
+        xbmc.log("ssh client")
+
+class Monitor(xbmc.Monitor):
+
+    def __init__(self):
+        xbmc.Monitor.__init__(self)
+        
+    def onDatabaseUpdated(self, video):
+        xbmc.log("database updated")
+                    
+class Player(xbmc.Player):
+
+    def __init__(self):
+        xbmc.Player.__init__(self) 
+        
+    def onPlayBackStopped(self):
+        xbmc.log("play back stopped")
+        
+Run()
+
+while(not xbmc.abortRequested):
+    xbmc.sleep(100)

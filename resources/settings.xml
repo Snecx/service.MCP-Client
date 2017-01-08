@@ -5,6 +5,7 @@
         
 		<setting id="serverip" visible="true" enable="true" type="text" label="32003" default="192.168.1.10" />
 		<setting id="serverport" visible="true" enable="true" type="text" label="32004" default="9090" />
+		<setting id="pingtime" visible="true" enable="true" type="text" label="32006" default="10" />
 		<setting id="debug" visible="true" enable="true" type="bool" label="32005" default="false" />
 		
 		

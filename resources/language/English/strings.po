@@ -29,3 +29,7 @@ msgstr ""
 msgctxt "#32005"
 msgid "Debug"
 msgstr ""
+
+msgctxt "#32006"
+msgid "Ping interval"
+msgstr ""
